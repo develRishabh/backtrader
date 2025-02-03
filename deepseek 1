@@ -1,0 +1,28 @@
+import ccxt
+import pandas as pd
+import talib
+
+# Initialize exchange
+exchange = ccxt.binance({'enableRateLimit': True})
+
+def fetch_data(symbol, timeframe='5m', limit=100):
+    data = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+    df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+    return df
+
+def generate_signals(df):
+    df['upper_band'], df['middle_band'], df['lower_band'] = talib.BBANDS(df['close'], timeperiod=20)
+    df['rsi'] = talib.RSI(df['close'], timeperiod=14)
+    df['ema50'] = talib.EMA(df['close'], timeperiod=50)
+    df['ema200'] = talib.EMA(df['close'], timeperiod=200)
+    
+    df['long'] = (df['close'] <= df['lower_band']) & (df['rsi'] < 30) & (df['close'] > df['ema200'])
+    df['short'] = (df['close'] >= df['upper_band']) & (df['rsi'] > 70) & (df['close'] < df['ema50'])
+    return df
+
+# Execute
+symbol = 'BTC/USDT'
+data = fetch_data(symbol)
+signals = generate_signals(data)
+print(signals.tail())
